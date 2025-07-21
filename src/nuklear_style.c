@@ -370,6 +370,7 @@ nk_style_from_table(struct nk_context *ctx, const struct nk_color *table)
     scroll->userdata        = nk_handle_ptr(0);
     scroll->border_color    = table[NK_COLOR_SCROLLBAR];
     scroll->cursor_border_color = table[NK_COLOR_SCROLLBAR];
+    scroll->min_thumb_size  = 0;
     scroll->padding         = nk_vec2(0,0);
     scroll->show_buttons    = nk_false;
     scroll->border          = 0;
