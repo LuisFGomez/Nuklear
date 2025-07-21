@@ -5112,6 +5112,7 @@ struct nk_style_scrollbar {
     struct nk_style_item cursor_hover;
     struct nk_style_item cursor_active;
     struct nk_color cursor_border_color;
+    nk_size min_thumb_size;
 
     /* properties */
     float border;

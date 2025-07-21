@@ -5335,6 +5335,7 @@ struct nk_style_scrollbar {
     struct nk_style_item cursor_hover;
     struct nk_style_item cursor_active;
     struct nk_color cursor_border_color;
+    nk_size min_thumb_size;
 
     /* properties */
     float border;
@@ -18836,6 +18837,7 @@ nk_style_from_table(struct nk_context *ctx, const struct nk_color *table)
     scroll->userdata        = nk_handle_ptr(0);
     scroll->border_color    = table[NK_COLOR_SCROLLBAR];
     scroll->cursor_border_color = table[NK_COLOR_SCROLLBAR];
+    scroll->min_thumb_size  = 0;
     scroll->padding         = nk_vec2(0,0);
     scroll->show_buttons    = nk_false;
     scroll->border          = 0;
@@ -26658,7 +26660,7 @@ nk_do_scrollbarv(nk_flags *state,
     scroll_off = scroll_offset / target;
 
     /* calculate scrollbar cursor bounds */
-    cursor.h = NK_MAX((scroll_ratio * scroll.h) - (2*style->border + 2*style->padding.y), 0);
+    cursor.h = NK_MAX((scroll_ratio * scroll.h) - (2*style->border + 2*style->padding.y), style->min_thumb_size);
     cursor.y = scroll.y + (scroll_off * scroll.h) + style->border + style->padding.y;
     cursor.w = scroll.w - (2 * style->border + 2 * style->padding.x);
     cursor.x = scroll.x + style->border + style->padding.x;
@@ -26746,7 +26748,7 @@ nk_do_scrollbarh(nk_flags *state,
     scroll_off = scroll_offset / target;
 
     /* calculate cursor bounds */
-    cursor.w = (scroll_ratio * scroll.w) - (2*style->border + 2*style->padding.x);
+    cursor.w = NK_MAX((scroll_ratio * scroll.w) - (2*style->border + 2*style->padding.y), style->min_thumb_size);
     cursor.x = scroll.x + (scroll_off * scroll.w) + style->border + style->padding.x;
     cursor.h = scroll.h - (2 * style->border + 2 * style->padding.y);
     cursor.y = scroll.y + style->border + style->padding.y;

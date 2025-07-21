@@ -191,7 +191,7 @@ nk_do_scrollbarv(nk_flags *state,
     scroll_off = scroll_offset / target;
 
     /* calculate scrollbar cursor bounds */
-    cursor.h = NK_MAX((scroll_ratio * scroll.h) - (2*style->border + 2*style->padding.y), 0);
+    cursor.h = NK_MAX((scroll_ratio * scroll.h) - (2*style->border + 2*style->padding.y), style->min_thumb_size);
     cursor.y = scroll.y + (scroll_off * scroll.h) + style->border + style->padding.y;
     cursor.w = scroll.w - (2 * style->border + 2 * style->padding.x);
     cursor.x = scroll.x + style->border + style->padding.x;
@@ -279,7 +279,7 @@ nk_do_scrollbarh(nk_flags *state,
     scroll_off = scroll_offset / target;
 
     /* calculate cursor bounds */
-    cursor.w = (scroll_ratio * scroll.w) - (2*style->border + 2*style->padding.x);
+    cursor.w = NK_MAX((scroll_ratio * scroll.w) - (2*style->border + 2*style->padding.y), style->min_thumb_size);
     cursor.x = scroll.x + (scroll_off * scroll.w) + style->border + style->padding.x;
     cursor.h = scroll.h - (2 * style->border + 2 * style->padding.y);
     cursor.y = scroll.y + style->border + style->padding.y;
