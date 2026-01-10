@@ -1345,7 +1345,7 @@ enum nk_header_button_action {
  *
  * \returns Combination of nk_header_button_action flags, or -1 to use default rendering
  */
-NK_API NK_WEAK int nk_header_buttons_override(
+NK_API int nk_header_buttons_override(
     struct nk_context *ctx,
     struct nk_window *win,
     struct nk_command_buffer *out,
