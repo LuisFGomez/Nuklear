@@ -91,6 +91,15 @@ extern "C" {
 #define NK_MAX(a,b) ((a) < (b) ? (b) : (a))
 #define NK_CLAMP(i,v,x) (NK_MAX(NK_MIN(v,x), i))
 
+/* Weak symbol support for compile-time callbacks */
+#ifndef NK_WEAK
+  #if defined(__GNUC__) || defined(__clang__)
+    #define NK_WEAK __attribute__((weak))
+  #else
+    #define NK_WEAK
+  #endif
+#endif
+
 #ifdef NK_INCLUDE_STANDARD_VARARGS
   #include <stdarg.h>
   #if defined(_MSC_VER) && (_MSC_VER >= 1600) /* VS 2010 and above */
@@ -256,6 +265,9 @@ struct nk_style_combo;
 struct nk_style_tab;
 struct nk_style_window_header;
 struct nk_style_window;
+struct nk_window;
+struct nk_style;
+struct nk_input;
 
 enum {nk_false, nk_true};
 struct nk_color {nk_byte r,g,b,a;};
@@ -1294,6 +1306,54 @@ enum nk_panel_flags {
     NK_WINDOW_SCALE_LEFT        = NK_FLAG(9),
     NK_WINDOW_NO_INPUT          = NK_FLAG(10)
 };
+
+/**
+ * # # nk_header_button_action
+ * Flags returned by the header button override callback to indicate
+ * which buttons were clicked.
+ */
+enum nk_header_button_action {
+    NK_HEADER_ACTION_NONE     = 0,
+    NK_HEADER_ACTION_CLOSE    = NK_FLAG(0),
+    NK_HEADER_ACTION_MINIMIZE = NK_FLAG(1),
+    NK_HEADER_ACTION_MAXIMIZE = NK_FLAG(2)
+};
+
+/**
+ * # # nk_header_buttons_override
+ * Weak symbol callback for customizing window header button rendering.
+ * Define this function in your application to override the default
+ * close/minimize buttons with custom rendering.
+ *
+ * ```c
+ * int nk_header_buttons_override(struct nk_context *ctx, struct nk_window *win,
+ *     struct nk_command_buffer *out, struct nk_rect *header,
+ *     const struct nk_style *style, const struct nk_input *in,
+ *     nk_flags win_flags, nk_bool is_active);
+ * ```
+ *
+ * Parameter   | Description
+ * ------------|-----------------------------------------------------------
+ * \param[in] ctx       | Nuklear context
+ * \param[in] win       | Current window being drawn
+ * \param[in] out       | Command buffer for drawing commands
+ * \param[in,out] header| Header rect (modify to shrink for title space)
+ * \param[in] style     | Current style
+ * \param[in] in        | Input state (may be NULL)
+ * \param[in] win_flags | Window flags (NK_WINDOW_CLOSABLE, NK_WINDOW_MINIMIZABLE)
+ * \param[in] is_active | Whether this window is active/focused
+ *
+ * \returns Combination of nk_header_button_action flags, or -1 to use default rendering
+ */
+NK_API NK_WEAK int nk_header_buttons_override(
+    struct nk_context *ctx,
+    struct nk_window *win,
+    struct nk_command_buffer *out,
+    struct nk_rect *header,
+    const struct nk_style *style,
+    const struct nk_input *in,
+    nk_flags win_flags,
+    nk_bool is_active);
 
 /**
  * # # nk_begin

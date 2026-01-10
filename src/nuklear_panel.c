@@ -6,6 +6,24 @@
  *                              PANEL
  *
  * ===============================================================*/
+
+/* Default weak implementation of header buttons override.
+ * Returns -1 to signal that default rendering should be used.
+ * Applications can define their own strong symbol to override. */
+NK_API NK_WEAK int nk_header_buttons_override(
+    struct nk_context *ctx,
+    struct nk_window *win,
+    struct nk_command_buffer *out,
+    struct nk_rect *header,
+    const struct nk_style *style,
+    const struct nk_input *in,
+    nk_flags win_flags,
+    nk_bool is_active)
+{
+    (void)ctx; (void)win; (void)out; (void)header;
+    (void)style; (void)in; (void)win_flags; (void)is_active;
+    return -1;  /* Use default rendering */
+}
 NK_LIB void*
 nk_create_panel(struct nk_context *ctx)
 {
@@ -232,50 +250,71 @@ nk_panel_begin(struct nk_context *ctx, const char *title, enum nk_panel_type pan
                 break;
         }
 
-        /* window close button */
-        {struct nk_rect button;
-        button.y = header.y + style->window.header.padding.y;
-        button.h = header.h - 2 * style->window.header.padding.y;
-        button.w = button.h;
-        if (win->flags & NK_WINDOW_CLOSABLE) {
-            nk_flags ws = 0;
-            if (style->window.header.align == NK_HEADER_RIGHT) {
-                button.x = (header.w + header.x) - (button.w + style->window.header.padding.x);
-                header.w -= button.w + style->window.header.spacing.x + style->window.header.padding.x;
-            } else {
-                button.x = header.x + style->window.header.padding.x;
-                header.x += button.w + style->window.header.spacing.x + style->window.header.padding.x;
-            }
+        /* window header buttons - check for override first */
+        {int override_result = nk_header_buttons_override(
+            ctx, win, out, &header, style, in, win->flags, ctx->active == win);
 
-            if (nk_do_button_symbol(&ws, &win->buffer, button,
-                style->window.header.close_symbol, NK_BUTTON_DEFAULT,
-                &style->window.header.close_button, in, style->font) && !(win->flags & NK_WINDOW_ROM))
-            {
+        if (override_result >= 0) {
+            /* Application handled rendering - process action flags */
+            if ((override_result & NK_HEADER_ACTION_CLOSE) && !(win->flags & NK_WINDOW_ROM)) {
                 layout->flags |= NK_WINDOW_HIDDEN;
                 layout->flags &= (nk_flags)~NK_WINDOW_MINIMIZED;
             }
-        }
-
-        /* window minimize button */
-        if (win->flags & NK_WINDOW_MINIMIZABLE) {
-            nk_flags ws = 0;
-            if (style->window.header.align == NK_HEADER_RIGHT) {
-                button.x = (header.w + header.x) - button.w;
-                if (!(win->flags & NK_WINDOW_CLOSABLE)) {
-                    button.x -= style->window.header.padding.x;
-                    header.w -= style->window.header.padding.x;
-                }
-                header.w -= button.w + style->window.header.spacing.x;
-            } else {
-                button.x = header.x;
-                header.x += button.w + style->window.header.spacing.x + style->window.header.padding.x;
-            }
-            if (nk_do_button_symbol(&ws, &win->buffer, button, (layout->flags & NK_WINDOW_MINIMIZED)?
-                style->window.header.maximize_symbol: style->window.header.minimize_symbol,
-                NK_BUTTON_DEFAULT, &style->window.header.minimize_button, in, style->font) && !(win->flags & NK_WINDOW_ROM))
+            if ((override_result & NK_HEADER_ACTION_MINIMIZE) && !(win->flags & NK_WINDOW_ROM)) {
                 layout->flags = (layout->flags & NK_WINDOW_MINIMIZED) ?
-                    layout->flags & (nk_flags)~NK_WINDOW_MINIMIZED:
+                    layout->flags & (nk_flags)~NK_WINDOW_MINIMIZED :
                     layout->flags | NK_WINDOW_MINIMIZED;
+            }
+            /* NK_HEADER_ACTION_MAXIMIZE: application handles via external state */
+        }
+        else {
+            /* Default button rendering */
+            struct nk_rect button;
+            button.y = header.y + style->window.header.padding.y;
+            button.h = header.h - 2 * style->window.header.padding.y;
+            button.w = button.h;
+
+            /* window close button */
+            if (win->flags & NK_WINDOW_CLOSABLE) {
+                nk_flags ws = 0;
+                if (style->window.header.align == NK_HEADER_RIGHT) {
+                    button.x = (header.w + header.x) - (button.w + style->window.header.padding.x);
+                    header.w -= button.w + style->window.header.spacing.x + style->window.header.padding.x;
+                } else {
+                    button.x = header.x + style->window.header.padding.x;
+                    header.x += button.w + style->window.header.spacing.x + style->window.header.padding.x;
+                }
+
+                if (nk_do_button_symbol(&ws, &win->buffer, button,
+                    style->window.header.close_symbol, NK_BUTTON_DEFAULT,
+                    &style->window.header.close_button, in, style->font) && !(win->flags & NK_WINDOW_ROM))
+                {
+                    layout->flags |= NK_WINDOW_HIDDEN;
+                    layout->flags &= (nk_flags)~NK_WINDOW_MINIMIZED;
+                }
+            }
+
+            /* window minimize button */
+            if (win->flags & NK_WINDOW_MINIMIZABLE) {
+                nk_flags ws = 0;
+                if (style->window.header.align == NK_HEADER_RIGHT) {
+                    button.x = (header.w + header.x) - button.w;
+                    if (!(win->flags & NK_WINDOW_CLOSABLE)) {
+                        button.x -= style->window.header.padding.x;
+                        header.w -= style->window.header.padding.x;
+                    }
+                    header.w -= button.w + style->window.header.spacing.x;
+                } else {
+                    button.x = header.x;
+                    header.x += button.w + style->window.header.spacing.x + style->window.header.padding.x;
+                }
+                if (nk_do_button_symbol(&ws, &win->buffer, button, (layout->flags & NK_WINDOW_MINIMIZED)?
+                    style->window.header.maximize_symbol: style->window.header.minimize_symbol,
+                    NK_BUTTON_DEFAULT, &style->window.header.minimize_button, in, style->font) && !(win->flags & NK_WINDOW_ROM))
+                    layout->flags = (layout->flags & NK_WINDOW_MINIMIZED) ?
+                        layout->flags & (nk_flags)~NK_WINDOW_MINIMIZED:
+                        layout->flags | NK_WINDOW_MINIMIZED;
+            }
         }}
 
         {/* window header title */
