@@ -704,6 +704,9 @@ nk_style_from_table(struct nk_context *ctx, const struct nk_color *table)
     win->spacing = nk_vec2(4,4);
     win->scrollbar_size = nk_vec2(10,10);
     win->min_size = nk_vec2(64,64);
+#ifdef NK_INCLUDE_WINDOW_EDGE_RESIZE
+    win->resize_grip_size = 5.0f;
+#endif
 
     win->combo_border = 1.0f;
     win->contextual_border = 1.0f;

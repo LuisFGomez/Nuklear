@@ -5467,6 +5467,10 @@ struct nk_style_window {
     struct nk_vec2 contextual_padding;
     struct nk_vec2 menu_padding;
     struct nk_vec2 tooltip_padding;
+
+#ifdef NK_INCLUDE_WINDOW_EDGE_RESIZE
+    float resize_grip_size;  /* Size of window edge/corner resize zones in pixels */
+#endif
 };
 
 struct nk_style {
