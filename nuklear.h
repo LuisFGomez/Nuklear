@@ -20200,6 +20200,30 @@ nk_panel_begin(struct nk_context *ctx, const char *title, enum nk_panel_type pan
         }
 #endif
 
+        /* Exclude header button areas from draggable region.
+         * Buttons are square with height = header.h - 2*padding.y */
+        {
+            float btn_size = header.h - 2.0f * style->window.header.padding.y;
+            float btn_area = 0;
+
+            if (win->flags & NK_WINDOW_CLOSABLE) {
+                btn_area += btn_size + style->window.header.spacing.x;
+            }
+            if (win->flags & NK_WINDOW_MINIMIZABLE) {
+                /* Minimize + maximize buttons */
+                btn_area += 2 * (btn_size + style->window.header.spacing.x);
+            }
+            if (btn_area > 0) {
+                btn_area += style->window.header.padding.x;
+                if (style->window.header.align == NK_HEADER_RIGHT) {
+                    header.w -= btn_area;
+                } else {
+                    header.x += btn_area;
+                    header.w -= btn_area;
+                }
+            }
+        }
+
         /* window movement by dragging */
         left_mouse_down = in->mouse.buttons[NK_BUTTON_LEFT].down;
         left_mouse_clicked = in->mouse.buttons[NK_BUTTON_LEFT].clicked;
