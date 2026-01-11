@@ -1356,6 +1356,70 @@ NK_API int nk_header_buttons_override(
     nk_bool is_active);
 
 /**
+ * # # nk_draw_checkbox_override
+ * Weak symbol callback for custom checkbox rendering.
+ * Called to draw the checkbox selector (box and checkmark).
+ * Override to draw custom icons like square/check-square.
+ *
+ * Parameter   | Description
+ * ------------|-----------------------------------------------------------
+ * \param[in] out      | Command buffer for drawing
+ * \param[in] active   | Whether the checkbox is checked
+ * \param[in] selector | Selector bounds (the checkbox box area)
+ * \param[in] color    | Foreground color from style
+ *
+ * \returns nk_true if handled (skip default), nk_false to use default rendering
+ */
+NK_API nk_bool nk_draw_checkbox_override(
+    struct nk_command_buffer *out,
+    nk_bool active,
+    struct nk_rect selector,
+    struct nk_color color);
+
+/**
+ * # # nk_draw_option_override
+ * Weak symbol callback for custom radio button rendering.
+ * Called to draw the radio selector (circle and dot).
+ * Override to draw custom icons like circle/record-circle.
+ *
+ * Parameter   | Description
+ * ------------|-----------------------------------------------------------
+ * \param[in] out      | Command buffer for drawing
+ * \param[in] active   | Whether the radio option is selected
+ * \param[in] selector | Selector bounds (the radio circle area)
+ * \param[in] color    | Foreground color from style
+ *
+ * \returns nk_true if handled (skip default), nk_false to use default rendering
+ */
+NK_API nk_bool nk_draw_option_override(
+    struct nk_command_buffer *out,
+    nk_bool active,
+    struct nk_rect selector,
+    struct nk_color color);
+
+/**
+ * # # nk_draw_symbol_override
+ * Weak symbol callback for custom symbol rendering (triangles, etc).
+ * Used by combo boxes, tree nodes, and other widgets with symbols.
+ *
+ * Parameter   | Description
+ * ------------|-----------------------------------------------------------
+ * \param[in] out          | Command buffer for drawing
+ * \param[in] type         | Symbol type (NK_SYMBOL_TRIANGLE_DOWN, etc)
+ * \param[in] bounds       | Symbol bounds
+ * \param[in] background   | Background color
+ * \param[in] foreground   | Foreground/symbol color
+ *
+ * \returns nk_true if handled (skip default), nk_false to use default rendering
+ */
+NK_API nk_bool nk_draw_symbol_override(
+    struct nk_command_buffer *out,
+    enum nk_symbol_type type,
+    struct nk_rect bounds,
+    struct nk_color background,
+    struct nk_color foreground);
+
+/**
  * # # nk_begin
  * Starts a new window; needs to be called every frame for every
  * window (unless hidden) or otherwise the window gets removed

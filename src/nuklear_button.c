@@ -6,11 +6,28 @@
  *                          BUTTON
  *
  * ===============================================================*/
+
+/* Default weak implementation - return nk_false to use default rendering */
+NK_API NK_WEAK nk_bool nk_draw_symbol_override(
+    struct nk_command_buffer *out,
+    enum nk_symbol_type type,
+    struct nk_rect bounds,
+    struct nk_color background,
+    struct nk_color foreground)
+{
+    (void)out; (void)type; (void)bounds; (void)background; (void)foreground;
+    return nk_false;
+}
+
 NK_LIB void
 nk_draw_symbol(struct nk_command_buffer *out, enum nk_symbol_type type,
     struct nk_rect content, struct nk_color background, struct nk_color foreground,
     float border_width, const struct nk_user_font *font)
 {
+    /* Try override first */
+    if (nk_draw_symbol_override(out, type, content, background, foreground))
+        return;
+
     switch (type) {
     case NK_SYMBOL_X:
     case NK_SYMBOL_UNDERSCORE:

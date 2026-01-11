@@ -6,6 +6,28 @@
  *                              TOGGLE
  *
  * ===============================================================*/
+
+/* Default weak implementations - return nk_false to use default rendering */
+NK_API NK_WEAK nk_bool nk_draw_checkbox_override(
+    struct nk_command_buffer *out,
+    nk_bool active,
+    struct nk_rect selector,
+    struct nk_color color)
+{
+    (void)out; (void)active; (void)selector; (void)color;
+    return nk_false;
+}
+
+NK_API NK_WEAK nk_bool nk_draw_option_override(
+    struct nk_command_buffer *out,
+    nk_bool active,
+    struct nk_rect selector,
+    struct nk_color color)
+{
+    (void)out; (void)active; (void)selector; (void)color;
+    return nk_false;
+}
+
 NK_LIB nk_bool
 nk_toggle_behavior(const struct nk_input *in, struct nk_rect select,
     nk_flags *state, nk_bool active)
@@ -53,15 +75,23 @@ nk_draw_checkbox(struct nk_command_buffer *out,
     text.background = style->text_background;
     nk_widget_text(out, *label, string, len, &text, text_alignment, font);
 
-    /* draw background and cursor */
+    /* Try override first - draws entire checkbox (box + checkmark) */
+    /* Pass text color (not cursor color) so icons are visible against background */
+    if (nk_draw_checkbox_override(out, active, *selector, text.text))
+        return; /* Override handled rendering */
+
+    /* Default: draw background and cursor */
     if (background->type == NK_STYLE_ITEM_COLOR) {
         nk_fill_rect(out, *selector, 0, nk_rgb_factor(style->border_color, style->color_factor));
         nk_fill_rect(out, nk_shrink_rect(*selector, style->border), 0, nk_rgb_factor(background->data.color, style->color_factor));
     } else nk_draw_image(out, *selector, &background->data.image, nk_rgb_factor(nk_white, style->color_factor));
     if (active) {
+        struct nk_color cursor_color = (cursor->type == NK_STYLE_ITEM_IMAGE)
+            ? nk_rgb_factor(nk_white, style->color_factor)
+            : cursor->data.color;
         if (cursor->type == NK_STYLE_ITEM_IMAGE)
-            nk_draw_image(out, *cursors, &cursor->data.image, nk_rgb_factor(nk_white, style->color_factor));
-        else nk_fill_rect(out, *cursors, 0, cursor->data.color);
+            nk_draw_image(out, *cursors, &cursor->data.image, cursor_color);
+        else nk_fill_rect(out, *cursors, 0, cursor_color);
     }
 }
 NK_LIB void
@@ -96,15 +126,23 @@ nk_draw_option(struct nk_command_buffer *out,
     text.background = style->text_background;
     nk_widget_text(out, *label, string, len, &text, text_alignment, font);
 
-    /* draw background and cursor */
+    /* Try override first - draws entire radio (circle + dot) */
+    /* Pass text color (not cursor color) so icons are visible against background */
+    if (nk_draw_option_override(out, active, *selector, text.text))
+        return; /* Override handled rendering */
+
+    /* Default: draw background and cursor */
     if (background->type == NK_STYLE_ITEM_COLOR) {
         nk_fill_circle(out, *selector, nk_rgb_factor(style->border_color, style->color_factor));
         nk_fill_circle(out, nk_shrink_rect(*selector, style->border), nk_rgb_factor(background->data.color, style->color_factor));
     } else nk_draw_image(out, *selector, &background->data.image, nk_rgb_factor(nk_white, style->color_factor));
     if (active) {
+        struct nk_color cursor_color = (cursor->type == NK_STYLE_ITEM_IMAGE)
+            ? nk_rgb_factor(nk_white, style->color_factor)
+            : cursor->data.color;
         if (cursor->type == NK_STYLE_ITEM_IMAGE)
-            nk_draw_image(out, *cursors, &cursor->data.image, nk_rgb_factor(nk_white, style->color_factor));
-        else nk_fill_circle(out, *cursors, cursor->data.color);
+            nk_draw_image(out, *cursors, &cursor->data.image, cursor_color);
+        else nk_fill_circle(out, *cursors, cursor_color);
     }
 }
 NK_LIB nk_bool
