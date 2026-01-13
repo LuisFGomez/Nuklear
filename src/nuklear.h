@@ -4799,9 +4799,7 @@ struct nk_mouse_button {
 struct nk_mouse {
     struct nk_mouse_button buttons[NK_BUTTON_MAX];
     struct nk_vec2 pos;
-#ifdef NK_BUTTON_TRIGGER_ON_RELEASE
-    struct nk_vec2 down_pos;
-#endif
+    struct nk_vec2 down_pos;  /* position where left mouse button went down */
     struct nk_vec2 prev;
     struct nk_vec2 delta;
     struct nk_vec2 scroll_delta;
@@ -5525,6 +5523,17 @@ enum nk_panel_type {
     NK_PANEL_MENU       = NK_FLAG(6),
     NK_PANEL_TOOLTIP    = NK_FLAG(7)
 };
+enum nk_resize_edge {
+    NK_RESIZE_NONE = 0,
+    NK_RESIZE_TOP_LEFT,
+    NK_RESIZE_TOP_RIGHT,
+    NK_RESIZE_BOTTOM_LEFT,
+    NK_RESIZE_BOTTOM_RIGHT,
+    NK_RESIZE_LEFT,
+    NK_RESIZE_RIGHT,
+    NK_RESIZE_TOP,
+    NK_RESIZE_BOTTOM
+};
 enum nk_panel_set {
     NK_PANEL_SET_NONBLOCK = NK_PANEL_CONTEXTUAL|NK_PANEL_COMBO|NK_PANEL_MENU|NK_PANEL_TOOLTIP,
     NK_PANEL_SET_POPUP = NK_PANEL_SET_NONBLOCK|NK_PANEL_POPUP,
@@ -5867,6 +5876,8 @@ struct nk_context {
     struct nk_window *end;
     struct nk_window *active;
     struct nk_window *current;
+    struct nk_window *resize_window;  /* window currently being edge-resized */
+    enum nk_resize_edge resize_edge;  /* which edge/corner is being resized */
     struct nk_page_element *freelist;
     unsigned int count;
     unsigned int seq;

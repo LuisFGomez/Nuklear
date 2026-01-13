@@ -5022,9 +5022,7 @@ struct nk_mouse_button {
 struct nk_mouse {
     struct nk_mouse_button buttons[NK_BUTTON_MAX];
     struct nk_vec2 pos;
-#ifdef NK_BUTTON_TRIGGER_ON_RELEASE
-    struct nk_vec2 down_pos;
-#endif
+    struct nk_vec2 down_pos;  /* position where left mouse button went down */
     struct nk_vec2 prev;
     struct nk_vec2 delta;
     struct nk_vec2 scroll_delta;
@@ -5748,6 +5746,17 @@ enum nk_panel_type {
     NK_PANEL_MENU       = NK_FLAG(6),
     NK_PANEL_TOOLTIP    = NK_FLAG(7)
 };
+enum nk_resize_edge {
+    NK_RESIZE_NONE = 0,
+    NK_RESIZE_TOP_LEFT,
+    NK_RESIZE_TOP_RIGHT,
+    NK_RESIZE_BOTTOM_LEFT,
+    NK_RESIZE_BOTTOM_RIGHT,
+    NK_RESIZE_LEFT,
+    NK_RESIZE_RIGHT,
+    NK_RESIZE_TOP,
+    NK_RESIZE_BOTTOM
+};
 enum nk_panel_set {
     NK_PANEL_SET_NONBLOCK = NK_PANEL_CONTEXTUAL|NK_PANEL_COMBO|NK_PANEL_MENU|NK_PANEL_TOOLTIP,
     NK_PANEL_SET_POPUP = NK_PANEL_SET_NONBLOCK|NK_PANEL_POPUP,
@@ -6090,6 +6099,8 @@ struct nk_context {
     struct nk_window *end;
     struct nk_window *active;
     struct nk_window *current;
+    struct nk_window *resize_window;  /* window currently being edge-resized */
+    enum nk_resize_edge resize_edge;  /* which edge/corner is being resized */
     struct nk_page_element *freelist;
     unsigned int count;
     unsigned int seq;
@@ -18398,13 +18409,12 @@ nk_input_button(struct nk_context *ctx, enum nk_buttons id, int x, int y, nk_boo
     /* Fix Click-Drag for touch events. */
     in->mouse.delta.x = 0;
     in->mouse.delta.y = 0;
-#ifdef NK_BUTTON_TRIGGER_ON_RELEASE
+    /* Track where left mouse button went down for edge resize detection */
     if (down == 1 && id == NK_BUTTON_LEFT)
     {
         in->mouse.down_pos.x = btn->clicked_pos.x;
         in->mouse.down_pos.y = btn->clicked_pos.y;
     }
-#endif
 }
 NK_API void
 nk_input_scroll(struct nk_context *ctx, struct nk_vec2 val)
@@ -20626,14 +20636,18 @@ nk_panel_end(struct nk_context *ctx)
             struct nk_vec2 window_size = style->window.min_size;
             int left_mouse_down = in->mouse.buttons[NK_BUTTON_LEFT].down;
             int left_mouse_clicked = in->mouse.buttons[NK_BUTTON_LEFT].clicked;
-
-            /* Edge/corner grab thickness from style */
+            float down_x = in->mouse.down_pos.x;
+            float down_y = in->mouse.down_pos.y;
+            enum nk_resize_edge active_edge = NK_RESIZE_NONE;
             const float edge_size = style->window.resize_grip_size;
-
-            /* Define edge zones (excluding corners) */
             struct nk_rect edge_top, edge_bottom, edge_left, edge_right;
-            /* Define corner zones */
             struct nk_rect corner_tl, corner_tr, corner_bl, corner_br;
+
+            /* Clear resize tracking when mouse button is released */
+            if (!left_mouse_down) {
+                ctx->resize_window = 0;
+                ctx->resize_edge = NK_RESIZE_NONE;
+            }
 
             /* Top edge */
             edge_top.x = window->bounds.x + edge_size;
@@ -20683,10 +20697,49 @@ nk_panel_end(struct nk_context *ctx)
             corner_br.w = edge_size;
             corner_br.h = edge_size;
 
-            /* Top-left corner resize */
-            if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
-                nk_input_has_mouse_click_down_in_rect(in, NK_BUTTON_LEFT, corner_tl, nk_true)) {
-                if (left_mouse_down && !left_mouse_clicked) {
+            /* Determine which edge/corner to resize:
+             * - If already resizing this window, continue with stored edge
+             * - If click just happened this frame, check down_pos against zones
+             * Using down_pos (where click started) instead of clicked_pos prevents
+             * false resize activation when scrollbar drags move clicked_pos */
+            if (ctx->resize_window == window && left_mouse_down) {
+                active_edge = ctx->resize_edge;
+            } else if (left_mouse_clicked && left_mouse_down) {
+                /* Check corners first (they overlap with edges) */
+                if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
+                    NK_INBOX(down_x, down_y, corner_tl.x, corner_tl.y, corner_tl.w, corner_tl.h))
+                    active_edge = NK_RESIZE_TOP_LEFT;
+                else if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
+                         NK_INBOX(down_x, down_y, corner_tr.x, corner_tr.y, corner_tr.w, corner_tr.h))
+                    active_edge = NK_RESIZE_TOP_RIGHT;
+                else if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
+                         NK_INBOX(down_x, down_y, corner_bl.x, corner_bl.y, corner_bl.w, corner_bl.h))
+                    active_edge = NK_RESIZE_BOTTOM_LEFT;
+                else if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
+                         NK_INBOX(down_x, down_y, corner_br.x, corner_br.y, corner_br.w, corner_br.h))
+                    active_edge = NK_RESIZE_BOTTOM_RIGHT;
+                else if (NK_INBOX(down_x, down_y, edge_left.x, edge_left.y, edge_left.w, edge_left.h))
+                    active_edge = NK_RESIZE_LEFT;
+                else if (NK_INBOX(down_x, down_y, edge_right.x, edge_right.y, edge_right.w, edge_right.h))
+                    active_edge = NK_RESIZE_RIGHT;
+                else if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
+                         NK_INBOX(down_x, down_y, edge_top.x, edge_top.y, edge_top.w, edge_top.h))
+                    active_edge = NK_RESIZE_TOP;
+                else if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
+                         NK_INBOX(down_x, down_y, edge_bottom.x, edge_bottom.y, edge_bottom.w, edge_bottom.h))
+                    active_edge = NK_RESIZE_BOTTOM;
+
+                /* Store which window/edge is being resized */
+                if (active_edge != NK_RESIZE_NONE) {
+                    ctx->resize_window = window;
+                    ctx->resize_edge = active_edge;
+                }
+            }
+
+            /* Apply resize based on active edge (skip on click frame) */
+            if (active_edge != NK_RESIZE_NONE && left_mouse_down && !left_mouse_clicked) {
+                switch (active_edge) {
+                case NK_RESIZE_TOP_LEFT:
                     if (window->bounds.w - in->mouse.delta.x >= window_size.x) {
                         window->bounds.x += in->mouse.delta.x;
                         window->bounds.w -= in->mouse.delta.x;
@@ -20696,14 +20749,8 @@ nk_panel_end(struct nk_context *ctx)
                         window->bounds.h -= in->mouse.delta.y;
                     }
                     ctx->style.cursor_active = ctx->style.cursors[NK_CURSOR_RESIZE_TOP_LEFT_DOWN_RIGHT];
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.x += in->mouse.delta.x;
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.y += in->mouse.delta.y;
-                }
-            }
-            /* Top-right corner resize */
-            else if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
-                     nk_input_has_mouse_click_down_in_rect(in, NK_BUTTON_LEFT, corner_tr, nk_true)) {
-                if (left_mouse_down && !left_mouse_clicked) {
+                    break;
+                case NK_RESIZE_TOP_RIGHT:
                     if (window->bounds.w + in->mouse.delta.x >= window_size.x)
                         window->bounds.w += in->mouse.delta.x;
                     if (window->bounds.h - in->mouse.delta.y >= window_size.y) {
@@ -20711,14 +20758,8 @@ nk_panel_end(struct nk_context *ctx)
                         window->bounds.h -= in->mouse.delta.y;
                     }
                     ctx->style.cursor_active = ctx->style.cursors[NK_CURSOR_RESIZE_TOP_RIGHT_DOWN_LEFT];
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.x += in->mouse.delta.x;
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.y += in->mouse.delta.y;
-                }
-            }
-            /* Bottom-left corner resize */
-            else if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
-                     nk_input_has_mouse_click_down_in_rect(in, NK_BUTTON_LEFT, corner_bl, nk_true)) {
-                if (left_mouse_down && !left_mouse_clicked) {
+                    break;
+                case NK_RESIZE_BOTTOM_LEFT:
                     if (window->bounds.w - in->mouse.delta.x >= window_size.x) {
                         window->bounds.x += in->mouse.delta.x;
                         window->bounds.w -= in->mouse.delta.x;
@@ -20726,63 +20767,40 @@ nk_panel_end(struct nk_context *ctx)
                     if (window->bounds.h + in->mouse.delta.y >= window_size.y)
                         window->bounds.h += in->mouse.delta.y;
                     ctx->style.cursor_active = ctx->style.cursors[NK_CURSOR_RESIZE_TOP_RIGHT_DOWN_LEFT];
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.x += in->mouse.delta.x;
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.y += in->mouse.delta.y;
-                }
-            }
-            /* Bottom-right corner resize */
-            else if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
-                     nk_input_has_mouse_click_down_in_rect(in, NK_BUTTON_LEFT, corner_br, nk_true)) {
-                if (left_mouse_down && !left_mouse_clicked) {
+                    break;
+                case NK_RESIZE_BOTTOM_RIGHT:
                     if (window->bounds.w + in->mouse.delta.x >= window_size.x)
                         window->bounds.w += in->mouse.delta.x;
                     if (window->bounds.h + in->mouse.delta.y >= window_size.y)
                         window->bounds.h += in->mouse.delta.y;
                     ctx->style.cursor_active = ctx->style.cursors[NK_CURSOR_RESIZE_TOP_LEFT_DOWN_RIGHT];
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.x += in->mouse.delta.x;
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.y += in->mouse.delta.y;
-                }
-            }
-            /* Right edge resize */
-            else if (nk_input_has_mouse_click_down_in_rect(in, NK_BUTTON_LEFT, edge_right, nk_true)) {
-                if (left_mouse_down && !left_mouse_clicked) {
-                    if (window->bounds.w + in->mouse.delta.x >= window_size.x)
-                        window->bounds.w += in->mouse.delta.x;
-                    ctx->style.cursor_active = ctx->style.cursors[NK_CURSOR_RESIZE_HORIZONTAL];
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.x += in->mouse.delta.x;
-                }
-            }
-            /* Left edge resize */
-            else if (nk_input_has_mouse_click_down_in_rect(in, NK_BUTTON_LEFT, edge_left, nk_true)) {
-                if (left_mouse_down && !left_mouse_clicked) {
+                    break;
+                case NK_RESIZE_LEFT:
                     if (window->bounds.w - in->mouse.delta.x >= window_size.x) {
                         window->bounds.x += in->mouse.delta.x;
                         window->bounds.w -= in->mouse.delta.x;
                     }
                     ctx->style.cursor_active = ctx->style.cursors[NK_CURSOR_RESIZE_HORIZONTAL];
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.x += in->mouse.delta.x;
-                }
-            }
-            /* Bottom edge resize */
-            else if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
-                     nk_input_has_mouse_click_down_in_rect(in, NK_BUTTON_LEFT, edge_bottom, nk_true)) {
-                if (left_mouse_down && !left_mouse_clicked) {
-                    if (window->bounds.h + in->mouse.delta.y >= window_size.y)
-                        window->bounds.h += in->mouse.delta.y;
-                    ctx->style.cursor_active = ctx->style.cursors[NK_CURSOR_RESIZE_VERTICAL];
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.y += in->mouse.delta.y;
-                }
-            }
-            /* Top edge resize */
-            else if (!(layout->flags & NK_WINDOW_DYNAMIC) &&
-                     nk_input_has_mouse_click_down_in_rect(in, NK_BUTTON_LEFT, edge_top, nk_true)) {
-                if (left_mouse_down && !left_mouse_clicked) {
+                    break;
+                case NK_RESIZE_RIGHT:
+                    if (window->bounds.w + in->mouse.delta.x >= window_size.x)
+                        window->bounds.w += in->mouse.delta.x;
+                    ctx->style.cursor_active = ctx->style.cursors[NK_CURSOR_RESIZE_HORIZONTAL];
+                    break;
+                case NK_RESIZE_TOP:
                     if (window->bounds.h - in->mouse.delta.y >= window_size.y) {
                         window->bounds.y += in->mouse.delta.y;
                         window->bounds.h -= in->mouse.delta.y;
                     }
                     ctx->style.cursor_active = ctx->style.cursors[NK_CURSOR_RESIZE_VERTICAL];
-                    in->mouse.buttons[NK_BUTTON_LEFT].clicked_pos.y += in->mouse.delta.y;
+                    break;
+                case NK_RESIZE_BOTTOM:
+                    if (window->bounds.h + in->mouse.delta.y >= window_size.y)
+                        window->bounds.h += in->mouse.delta.y;
+                    ctx->style.cursor_active = ctx->style.cursors[NK_CURSOR_RESIZE_VERTICAL];
+                    break;
+                default:
+                    break;
                 }
             }
             /* Set hover cursor for corners and edges (only when not dragging) */

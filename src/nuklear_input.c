@@ -87,13 +87,12 @@ nk_input_button(struct nk_context *ctx, enum nk_buttons id, int x, int y, nk_boo
     /* Fix Click-Drag for touch events. */
     in->mouse.delta.x = 0;
     in->mouse.delta.y = 0;
-#ifdef NK_BUTTON_TRIGGER_ON_RELEASE
+    /* Track where left mouse button went down for edge resize detection */
     if (down == 1 && id == NK_BUTTON_LEFT)
     {
         in->mouse.down_pos.x = btn->clicked_pos.x;
         in->mouse.down_pos.y = btn->clicked_pos.y;
     }
-#endif
 }
 NK_API void
 nk_input_scroll(struct nk_context *ctx, struct nk_vec2 val)
