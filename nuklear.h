@@ -1579,6 +1579,36 @@ NK_API int nk_header_buttons_override(
     nk_bool is_active);
 
 /**
+ * # # nk_header_custom_widgets_override
+ * Weak symbol callback for rendering application-defined widgets in the window
+ * titlebar. Called after nk_header_buttons_override so the header rect already
+ * excludes the standard close/min/max cluster; any widgets drawn here appear
+ * to the left of (or otherwise within) the remaining header space.
+ *
+ * Unlike nk_header_buttons_override this callback returns nothing — actions
+ * are app-specific and handled internally by the override.
+ *
+ * \param[in]     ctx       Nuklear context
+ * \param[in]     win       Current window being drawn
+ * \param[in]     out       Command buffer for drawing commands
+ * \param[in,out] header    Header rect; shrink as widgets are placed so the
+ *                          title text is not overdrawn.
+ * \param[in]     style     Current style window header style
+ * \param[in]     in        Input state (may be NULL)
+ * \param[in]     win_flags Window flags
+ * \param[in]     is_active Whether this window is active/focused
+ */
+NK_API void nk_header_custom_widgets_override(
+    struct nk_context *ctx,
+    struct nk_window *win,
+    struct nk_command_buffer *out,
+    struct nk_rect *header,
+    const struct nk_style_window_header *style,
+    const struct nk_input *in,
+    nk_flags win_flags,
+    nk_bool is_active);
+
+/**
  * # # nk_draw_checkbox_override
  * Weak symbol callback for custom checkbox rendering.
  * Called to draw the checkbox selector (box and checkmark).
@@ -20069,6 +20099,24 @@ NK_API NK_WEAK int nk_header_buttons_override(
     (void)style; (void)in; (void)win_flags; (void)is_active;
     return -1;  /* Use default rendering */
 }
+
+/* Default weak implementation of custom header-widget override.
+ * Does nothing — applications can define a strong symbol to place widgets
+ * (e.g. dropdowns, badges) in the titlebar to the left of the standard
+ * close/min/max cluster. */
+NK_API NK_WEAK void nk_header_custom_widgets_override(
+    struct nk_context *ctx,
+    struct nk_window *win,
+    struct nk_command_buffer *out,
+    struct nk_rect *header,
+    const struct nk_style_window_header *style,
+    const struct nk_input *in,
+    nk_flags win_flags,
+    nk_bool is_active)
+{
+    (void)ctx; (void)win; (void)out; (void)header;
+    (void)style; (void)in; (void)win_flags; (void)is_active;
+}
 NK_LIB void*
 nk_create_panel(struct nk_context *ctx)
 {
@@ -20396,6 +20444,13 @@ nk_panel_begin(struct nk_context *ctx, const char *title, enum nk_panel_type pan
                         layout->flags | NK_WINDOW_MINIMIZED;
             }
         }}
+
+        /* application-defined titlebar widgets (e.g. symbol group dropdown).
+         * Runs after the standard button cluster so the header rect already
+         * excludes it; widgets drawn here land to the left of that cluster. */
+        nk_header_custom_widgets_override(
+            ctx, win, out, &header, &style->window.header, in,
+            win->flags, ctx->active == win);
 
         {/* window header title */
         int text_len = nk_strlen(title);
